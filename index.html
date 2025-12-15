@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Instagram Embed Test</title>
+  <title>Instagram フィード</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -11,42 +11,103 @@
       max-width: 960px;
       margin: 0 auto;
       padding: 16px;
+      background: #f7f7f7;
     }
     h1 {
       font-size: 1.4rem;
       margin-bottom: 12px;
     }
+
+    /* ▼ フィード全体を「3行ぶんくらいの高さ＋スクロール」にする */
+    #ig-feed-wrapper {
+      max-height: 780px;           /* カード3行ぶんくらいの高さ。好みで調整OK */
+      overflow-y: auto;
+    }
+
     #ig-feed {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      padding-right: 4px; /* スクロールバーぶん余白 */
     }
-    #ig-feed a {
-      display: block;
-      width: 150px;
-      height: 150px;
-      overflow: hidden;
+
+    .ig-card {
+      background: #fff;
       border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
-    #ig-feed img {
+    .ig-thumb-wrapper {
+      position: relative;
+      width: 100%;
+      padding-bottom: 100%; /* 正方形 */
+      overflow: hidden;
+    }
+    .ig-thumb-wrapper img {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
       transition: transform .2s ease;
     }
-    #ig-feed a:hover img {
+    .ig-card:hover .ig-thumb-wrapper img {
       transform: scale(1.05);
+    }
+    .ig-body {
+      padding: 8px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+    .ig-date {
+      font-size: 12px;
+      color: #555;
+    }
+    .ig-caption {
+      font-size: 13px;
+      line-height: 1.4;
+      color: #222;
+      word-break: break-word;
+      white-space: pre-wrap; /* 改行も反映 */
+      /* ← ここはもうスクロール制限なし、全文表示に戻す */
+    }
+    .ig-link {
+      font-size: 11px;
+      color: #1b7ad7;
+      margin-top: 4px;
+      text-decoration: none;
+    }
+    .ig-link:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <h1>Instagram フィード</h1>
-  <div id="ig-feed">読み込み中...</div>
+
+  <!-- ▼ ラッパーを追加して「この中だけスクロール」 -->
+  <div id="ig-feed-wrapper">
+    <div id="ig-feed">読み込み中...</div>
+  </div>
 
   <script>
-    // GAS WebアプリのURL 
-    const IG_PROXY_URL = "https://script.google.com/macros/s/AKfycbzkKpz_wozz-Ei6FfcJ-tbEyVYzXBU7blkWz5hITUlJNwESNJx3HqFYTITip1G5aDRDOA/exec";
+    // ★ここを今使ってるGASの /exec URL にする★
+    const IG_PROXY_URL = "https://script.googleusercontent.com/macros/echo?xxxxxx/exec";
+
+    function formatDate(isoString) {
+      if (!isoString) return "";
+      const d = new Date(isoString);
+      return d.toLocaleDateString("ja-JP", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+    }
 
     async function loadInstagram() {
       const container = document.getElementById("ig-feed");
@@ -64,21 +125,55 @@
         }
 
         container.textContent = "";
+
         items.forEach((item) => {
-          const a = document.createElement("a");
-          a.href = item.permalink;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
+          const card = document.createElement("div");
+          card.className = "ig-card";
+
+          const link = document.createElement("a");
+          link.href = item.permalink;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+
+          const thumbWrapper = document.createElement("div");
+          thumbWrapper.className = "ig-thumb-wrapper";
 
           const img = document.createElement("img");
           img.src = item.media_url;
           img.alt = item.caption || "";
 
-          a.appendChild(img);
-          container.appendChild(a);
+          thumbWrapper.appendChild(img);
+          link.appendChild(thumbWrapper);
+          card.appendChild(link);
+
+          const body = document.createElement("div");
+          body.className = "ig-body";
+
+          const dateEl = document.createElement("div");
+          dateEl.className = "ig-date";
+          dateEl.textContent = formatDate(item.timestamp);
+          body.appendChild(dateEl);
+
+          if (item.caption) {
+            const capEl = document.createElement("div");
+            capEl.className = "ig-caption";
+            capEl.textContent = item.caption;
+            body.appendChild(capEl);
+          }
+
+          const linkEl = document.createElement("a");
+          linkEl.className = "ig-link";
+          linkEl.href = item.permalink;
+          linkEl.target = "_blank";
+          linkEl.rel = "noopener noreferrer";
+          linkEl.textContent = "Instagramで開く";
+          body.appendChild(linkEl);
+
+          card.appendChild(body);
+          container.appendChild(card);
         });
       } catch (err) {
-        console.error(err);
+        console.error("IG load error", err);
         container.textContent = "Instagramの読み込みに失敗しました。";
       }
     }
